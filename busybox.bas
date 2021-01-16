@@ -7,134 +7,13 @@ Option Explicit
 
 ' Global
 Dim BusyboxPath As String
+Dim BusyboxCharset As String
+Const BusyboxCharsetDefault = "UTF-8"
 
 ' SetBusyboxPath
 Public Sub SetBusyboxPath(Path As String)
     BusyboxPath = Path
 End Sub
-
-' GrepSheet
-Public Function GrepSheet(ByVal RegExp As String, ByVal Options As String, ByRef InSheet As Worksheet, ByRef OutSheet As Worksheet) As Boolean
-    ' 対象シートをTSVに変換
-    Dim tsv As String, TmpFile As String
-    tsv = ToTSV(InSheet)
-    TmpFile = GetTempPath(".tsv")
-    SaveToFile TmpFile, tsv, "utf-8"
-    
-    ' grepを実行して結果を得る
-    Dim cmd As String, s As String
-    cmd = "grep " & Options & " " & qq(RegExp) & " " & qq(TmpFile)
-    s = ExecBatch(cmd, "__ERROR__")
-    If s = "__ERROR__" Then
-        GrepSheet = False
-        Exit Function
-    End If
-
-    ' 結果をシートに張り付ける
-    TSVToSheet OutSheet, s, 1
-    GrepSheet = True
-End Function
-
-' GrepText
-Public Function GrepText(ByVal RegExp As String, ByVal Options As String, ByVal InText As String) As String
-    Dim TmpFile
-    ' Save text to file
-    TmpFile = GetTempPath(".tsv")
-    SaveToFile TmpFile, InText, "utf-8"
-    
-    ' grepを実行して結果を得る
-    Dim cmd As String, s As String
-    cmd = "grep " & Options & " " & qq(RegExp) & " " & qq(TmpFile)
-    s = ExecBatch(cmd, "__ERROR__")
-    If s = "__ERROR__" Then
-        GrepText = False
-        Exit Function
-    End If
-    GrepText = s
-End Function
-
-' SedSheet
-Public Function SedSheet(ByVal Commands As String, ByRef InSheet As Worksheet, OutSheet As Worksheet) As Boolean
-    ' Save text to file
-    Dim TmpFile, tsv
-    tsv = ToTSV(InSheet)
-    TmpFile = GetTempPath(".tsv")
-    SaveToFile TmpFile, tsv, "utf-8"
-    
-    ' sedを実行して結果を得る
-    Dim cmd As String, s As String
-    cmd = "sed " & Commands & " " & qq(TmpFile)
-    s = ExecBatch(cmd, "__ERROR__")
-    If s = "__ERROR__" Then
-        SedSheet = False
-        Exit Function
-    End If
-    
-    ' 結果をシートに
-    TSVToSheet OutSheet, s, 1
-    SedSheet = True
-End Function
-
-
-' SedText
-Public Function SedText(ByVal Commands As String, ByVal InText As String) As String
-    ' Save text to file
-    Dim TmpFile
-    TmpFile = GetTempPath(".tsv")
-    SaveToFile TmpFile, InText, "utf-8"
-    
-    ' grepを実行して結果を得る
-    Dim cmd As String, s As String
-    cmd = "sed " & Commands & " " & qq(TmpFile)
-    s = ExecBatch(cmd, "__ERROR__")
-    If s = "__ERROR__" Then
-        SedText = False
-        Exit Function
-    End If
-    SedText = s
-End Function
-
-
-' AwkText
-Public Function AwkText(ByVal Commands As String, ByVal InText As String) As String
-    ' Save text to file
-    Dim TmpFile
-    TmpFile = GetTempPath(".tsv")
-    SaveToFile TmpFile, InText, "utf-8"
-    
-    ' awkを実行して結果を得る
-    Dim cmd As String, s As String
-    cmd = "awk " & Commands & " " & qq(TmpFile)
-    s = ExecBatch(cmd, "__ERROR__")
-    If s = "__ERROR__" Then
-        AwkText = False
-        Exit Function
-    End If
-    AwkText = s
-End Function
-
-' AwkSheet
-Public Function AwkSheet(ByVal Commands As String, ByRef InSheet As Worksheet, OutSheet As Worksheet) As Boolean
-    ' Save text to file
-    Dim TmpFile, tsv
-    tsv = ToTSV(InSheet)
-    TmpFile = GetTempPath(".tsv")
-    SaveToFile TmpFile, tsv, "utf-8"
-    
-    ' sedを実行して結果を得る
-    Dim cmd As String, s As String
-    cmd = "awk " & Commands & " " & qq(TmpFile)
-    s = ExecBatch(cmd, "__ERROR__")
-    If s = "__ERROR__" Then
-        AwkSheet = False
-        Exit Function
-    End If
-    
-    ' 結果をシートに
-    TSVToSheet OutSheet, s, 1
-    AwkSheet = True
-End Function
-
 
 ' Initalize busybox
 Private Sub BusyboxInit()
@@ -154,30 +33,101 @@ Private Sub BusyboxInit()
     If Not FSO.FileExists(BusyboxPath) Then
         MsgBox "busybox.exe not found", vbCritical
     End If
+    ' set charset
+    If BusyboxCharset = "" Then
+        BusyboxCharset = "UTF-8"
+    End If
 End Sub
 
-' ShellWait is Execute command and wait
-Public Function ShellWait(command As String) As Boolean
-    On Error GoTo SHELL_ERROR
-    Dim wsh As Object
-    Set wsh = CreateObject("Wscript.Shell")
-    Dim res As Integer
-    res = wsh.Run(command, 7, True) ' minimize not focus
-    ShellWait = (res = 0)
-    Exit Function
-SHELL_ERROR:
-    ShellWait = False
+
+Public Function ExecSheet(ByVal Command As String, ByVal Pattern As String, ByVal Options As String, ByRef InSheet As Worksheet, ByRef OutSheet As Worksheet) As Boolean
+    ' 対象シートをTSVに変換
+    Dim tsv As String, tmpfile As String
+    tsv = ToTSV(InSheet)
+    tmpfile = GetTempPath(".tsv")
+    SaveText tmpfile, tsv
+    
+    ' パターンをファイルに保存(コマンドラインから多バイト文字コードを実行すると文字化けするため)
+    Dim patfile As String
+    patfile = GetTempPath("-pat.tsv")
+    SaveText patfile, Pattern
+    
+    ' コマンドを構築
+    Dim cmd As String, s As String
+    cmd = Command & " " & Options & " -f " & qq(patfile) & " " & qq(tmpfile)
+    
+    ' grepを実行して結果を得る
+    s = ExecBatch(cmd, "__ERROR__")
+    If s = "__ERROR__" Then
+        ExecSheet = False
+        Exit Function
+    End If
+
+    ' 結果をシートに張り付ける
+    TSVToSheet OutSheet, s, 1
+    ExecSheet = True
 End Function
 
-Private Function GetTempPath(Ext As String) As String
-    Dim FSO As Object, Tmp As String
-    Set FSO = CreateObject("Scripting.FileSystemObject")
-    Tmp = FSO.GetSpecialFolder(2) & "\" & FSO.GetBaseName(FSO.GetTempName) & Ext
-    GetTempPath = Tmp
+
+' GrepSheet
+Public Function GrepSheet(ByVal Pattern As String, ByVal Options As String, ByRef InSheet As Worksheet, ByRef OutSheet As Worksheet) As Boolean
+    GrepSheet = ExecSheet("grep", Pattern, Options, InSheet, OutSheet)
 End Function
+
+' SedSheet
+Public Function SedSheet(ByVal Script As String, ByVal Options As String, ByRef InSheet As Worksheet, OutSheet As Worksheet) As Boolean
+    SedSheet = ExecSheet("sed", Script, Options, InSheet, OutSheet)
+End Function
+
+' AwkSheet
+Public Function AwkSheet(ByVal Script As String, ByVal Options As String, ByRef InSheet As Worksheet, OutSheet As Worksheet) As Boolean
+    AwkSheet = ExecSheet("awk", Script, Options, InSheet, OutSheet)
+End Function
+
+
+' GrepText
+Public Function ExecText(ByVal Command As String, ByVal Pattern As String, ByVal Options As String, ByVal InText As String) As String
+    Dim tmpfile
+    ' Save text to file
+    tmpfile = GetTempPath(".tsv")
+    SaveText tmpfile, InText
+    
+    ' パターンをファイルに保存（コマンドライン上の対象文字コード回避のため。CodePageを変えてもエラーになった）
+    Dim patfile
+    patfile = GetTempPath("-pat.txt")
+    SaveText patfile, Pattern
+    
+    ' grepを実行して結果を得る
+    Dim cmd As String, s As String
+    cmd = Command & " " & Options & " -f " & qq(patfile) & " " & qq(tmpfile)
+    s = ExecBatch(cmd, "__ERROR__")
+    If s = "__ERROR__" Then
+        ExecText = False
+        Exit Function
+    End If
+    ExecText = s
+End Function
+
+' GrepText
+Public Function GrepText(ByVal RegExp As String, ByVal Options As String, ByVal InText As String) As String
+    GrepText = ExecText("grep", RegExp, Options, InText)
+End Function
+
+
+' SedText
+Public Function SedText(ByVal Script As String, ByVal Options As String, ByVal InText As String) As String
+    SedText = ExecText("sed", Script, Options, InText)
+End Function
+
+
+' AwkText
+Public Function AwkText(ByVal Script As String, ByVal Options As String, ByVal InText As String) As String
+    AwkText = ExecText("awk", Script, Options, InText)
+End Function
+
 
 ' Execute Batch Command
-Public Function ExecBatch(command As String, FailStr As String) As String
+Public Function ExecBatch(ByVal Command As String, ByVal FailStr As String) As String
     Call BusyboxInit
     ' GetTempFile
     Dim FSO As Object, BatFile As String, OutFile As String
@@ -187,8 +137,11 @@ Public Function ExecBatch(command As String, FailStr As String) As String
 
     ' Save batfile
     Dim Src As String
-    Src = qq(BusyboxPath) & " " & command & ">" & qq(OutFile) & vbCrLf
-    SaveToFile BatFile, Src, "sjis"
+    Src = qq(BusyboxPath) & " " & Command
+    Src = Src & ">" & qq(OutFile) & vbCrLf
+    ' Src = "chcp 65001" & vbCrLf & Src ' Set Charset UTF-8
+    ' Src = Src & vbCrLf & "pause" & vbCrLf
+    SaveText BatFile, Src
     Debug.Print Src
     
     ' execute batch
@@ -201,9 +154,32 @@ Public Function ExecBatch(command As String, FailStr As String) As String
     End If
     ' GetResult
     Dim res As String
-    res = ReadTextFile(OutFile, "utf-8")
+    res = LoadText(OutFile)
     ExecBatch = res
 End Function
+
+' 以下は下請け関数
+
+' ShellWait is Execute command and wait
+Public Function ShellWait(Command As String) As Boolean
+    On Error GoTo SHELL_ERROR
+    Dim wsh As Object
+    Set wsh = CreateObject("Wscript.Shell")
+    Dim res As Integer
+    res = wsh.Run(Command, 7, True) ' minimize not focus
+    ShellWait = (res = 0)
+    Exit Function
+SHELL_ERROR:
+    ShellWait = False
+End Function
+
+Private Function GetTempPath(Ext As String) As String
+    Dim FSO As Object, tmp As String
+    Set FSO = CreateObject("Scripting.FileSystemObject")
+    tmp = FSO.GetSpecialFolder(2) & "\" & FSO.GetBaseName(FSO.GetTempName) & Ext
+    GetTempPath = tmp
+End Function
+
 
 ' パスの前後にダブルクォートをつける
 Private Function qq(Path) As String
@@ -263,8 +239,25 @@ Public Function ToTSV(ByRef Sheet As Worksheet) As String
     ToTSV = s
 End Function
 
-' テキストをファイルに保存
+Public Sub SaveText(ByVal Filename As String, Text As String)
+    If BusyboxCharset = "" Then BusyboxCharset = BusyboxCharsetDefault
+    SaveToFile Filename, Text, BusyboxCharset
+End Sub
+
+Public Function LoadText(Filename) As String
+    If BusyboxCharset = "" Then BusyboxCharset = BusyboxCharsetDefault
+    LoadText = LoadFromFile(Filename, BusyboxCharset)
+End Function
+
+
+' テキストを指定文字コードでファイルに保存
 Public Sub SaveToFile(Filename, Text, Charset)
+    ' UTF-8 の場合 BOMは不要
+    If LCase(Charset) = "utf-8" Or LCase(Charset) = "utf-8n" Or LCase(Charset) = "utf8" Then
+        Call SaveToFileUTF8N(Filename, Text)
+        Exit Sub
+    End If
+    
     Dim stream As Object
     Set stream = CreateObject("ADODB.Stream")
     stream.Charset = Charset
@@ -274,15 +267,37 @@ Public Sub SaveToFile(Filename, Text, Charset)
     stream.Close
 End Sub
 
+' BOMなしのUTF-8でファイルにテキストを書き込む
+Public Sub SaveToFileUTF8N(Filename, Text)
+    Dim stream, buf
+    Set stream = CreateObject("ADODB.Stream")
+    With stream
+        .Type = 2 ' テキストモードを指定 --- (*1)
+        .Charset = "UTF-8"
+        .Open
+        .WriteText Text ' テキストを書き込む
+        .Position = 0 ' カーソルをファイル先頭に --- (*2)
+        .Type = 1 ' バイナリモードに変更
+        .Position = 3 ' BOM(3バイト)を飛ばす
+        buf = .Read() ' 内容を読み込む
+        .Position = 0 ' カーソルを先頭に --- (*3)
+        .Write buf ' BOMなしのテキストを書き込み
+        .SetEOS
+        .SaveToFile Filename, 2
+        .Close
+    End With
+End Sub
+
+
 ' 任意の文字エンコーディングを指定してテキストファイルを読む
-Public Function ReadTextFile(Filename, Charset) As String
+Public Function LoadFromFile(Filename, Charset) As String
     Dim stream
     Set stream = CreateObject("ADODB.Stream")
     stream.Type = 2 ' text
     stream.Charset = Charset
     stream.Open
     stream.LoadFromFile Filename
-    ReadTextFile = stream.ReadText
+    LoadFromFile = stream.ReadText
     stream.Close
 End Function
 

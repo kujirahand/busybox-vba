@@ -12,23 +12,56 @@ grep, sed, awk for VBA
 
 grep, sed, awk ...
 
-## grep function
+# VBA Setup
 
- - Public Function GrepSheet(ByVal RegExp As String, Options As String, ByRef InSheet As Worksheet, OutSheet As Worksheet) As Boolean
- - Public Function GrepText(ByVal RegExp As String, Options As String, InText As String) As String
+```
+' Path and Charset
+BusyboxPath = "busybox.exe"
+BusyboxCharset = "utf-8"
+```
 
-## sed function
+# Sample
 
- - Public Function SedSheet(ByVal Commands As String, ByRef InSheet As Worksheet, OutSheet As Worksheet) As Boolean
- - Public Function SedText(ByVal Commands As String, ByVal InText As String) As String
+Please see Module1 in Sample.xlsm.
 
-## command function
+```
+' Test grep Sheet
+Sub TestGrepSheet()
+    ClearSheet Sheet2, 1
+    GrepSheet "^y", "-i", Sheet1, Sheet2
+End Sub
 
- - Public Function ExecBatch(command As String, FailStr As String) As String
- - Public Sub ClearSheet(ByRef Sheet As Worksheet, ByVal TopRow As Integer)
- - Public Sub TSVToSheet(ByRef Sheet As Worksheet, ByVal tsv As String, TopRow As Integer)
- - Public Function ToTSV(ByRef Sheet As Worksheet) As String
- - Public Sub SaveToFile(Filename, Text, Charset)
- - Public Function ReadTextFile(Filename, Charset) As String
+' Test grep Text
+Sub TestGrepText()
+    Dim tsv
+    tsv = ToTSV(Sheet1)
+    Debug.Print GrepText("^y", "-i", tsv)
+End Sub
 
+' Test sed Sheet
+Sub TestSedSheet()
+    ClearSheet Sheet2, 1
+    SedSheet "s/^Y2021/(new)/p", "-n", Sheet1, Sheet2
+End Sub
+
+' Test sed Text
+Sub TestSedText()
+    Dim tsv
+    tsv = ToTSV(Sheet1)
+    Debug.Print SedText("s/^Y2021/(new)/p", "-n", tsv)
+End Sub
+
+' Test awk Text
+Sub TestAwkText()
+    Dim tsv
+    tsv = ToTSV(Sheet1)
+    Debug.Print AwkText("{$3=int($3*1.1);print}", "-F""\t"" -vOFS=""\t""", tsv)
+End Sub
+
+' Test awk Sheet
+Sub TestAwkSheet()
+    ClearSheet Sheet2, 1
+    AwkSheet "{$3=int($3*1.1);print}", "-F""\t"" -vOFS=""\t""", Sheet1, Sheet2
+End Sub
+```
 
