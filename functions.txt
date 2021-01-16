@@ -12,8 +12,8 @@ Public Function ShellWait(ByVal Command As String) As Boolean
 Public Sub ClearSheet(ByRef Sheet As Worksheet, ByVal TopRow As Integer)
 Public Sub TSVToSheet(ByRef Sheet As Worksheet, ByVal tsv As String, TopRow As Integer)
 Public Function ToTSV(ByRef Sheet As Worksheet) As String
-Public Sub SaveText(ByVal Filename As String, Text As String)
+Public Sub SaveText(ByVal Filename As String, ByVal Text As String)
 Public Function LoadText(Filename) As String
-Public Sub SaveToFile(Filename, Text, Charset)
+Public Sub SaveToFile(ByVal Filename, ByVal Text, ByVal Charset)
 Public Sub SaveToFileUTF8N(Filename, Text)
 Public Function LoadFromFile(Filename, Charset) As String

@@ -15,6 +15,11 @@ Public Sub SetBusyboxPath(Path As String)
     BusyboxPath = Path
 End Sub
 
+' SetBusyboxPath
+Public Sub SetBusyboxCharset(ByVal Charset As String)
+    BusyboxCharset = Charset
+End Sub
+
 ' Initalize busybox
 Private Sub BusyboxInit()
     Dim FSO As Object
