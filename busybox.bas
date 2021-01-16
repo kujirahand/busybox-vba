@@ -33,10 +33,6 @@ Private Sub BusyboxInit()
     If Not FSO.FileExists(BusyboxPath) Then
         MsgBox "busybox.exe not found", vbCritical
     End If
-    ' set charset
-    If BusyboxCharset = "" Then
-        BusyboxCharset = "UTF-8"
-    End If
 End Sub
 
 
@@ -81,6 +77,12 @@ End Function
 
 ' AwkSheet
 Public Function AwkSheet(ByVal Script As String, ByVal Options As String, ByRef InSheet As Worksheet, OutSheet As Worksheet) As Boolean
+    ' オプションが指定されていないとき、タブ記号を指定する
+    If Options = "" Then
+        Options = "-F""\t"" -vOFS=""\t"""
+    End If
+    
+    ' コマンドを実行
     AwkSheet = ExecSheet("awk", Script, Options, InSheet, OutSheet)
 End Function
 
@@ -113,12 +115,10 @@ Public Function GrepText(ByVal RegExp As String, ByVal Options As String, ByVal 
     GrepText = ExecText("grep", RegExp, Options, InText)
 End Function
 
-
 ' SedText
 Public Function SedText(ByVal Script As String, ByVal Options As String, ByVal InText As String) As String
     SedText = ExecText("sed", Script, Options, InText)
 End Function
-
 
 ' AwkText
 Public Function AwkText(ByVal Script As String, ByVal Options As String, ByVal InText As String) As String
