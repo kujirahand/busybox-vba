@@ -12,14 +12,6 @@ grep, sed, awk for VBA
 
 grep, sed, awk ...
 
-# VBA Setup
-
-```
-' Path and Charset
-BusyboxPath = "busybox.exe"
-BusyboxCharset = "utf-8"
-```
-
 # Sample
 
 Please see Module1 in Sample.xlsm.
@@ -61,7 +53,7 @@ End Sub
 ' Test awk Sheet
 Sub TestAwkSheet()
     ClearSheet Sheet2, 1
-    AwkSheet "{$3=int($3*1.1);print}", "-F""\t"" -vOFS=""\t""", Sheet1, Sheet2
+    AwkSheet "{$3=int($3*1.1);print}", "", Sheet1, Sheet2
 End Sub
 ```
 
