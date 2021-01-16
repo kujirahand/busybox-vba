@@ -42,15 +42,10 @@ Public Function ExecSheet(ByVal Command As String, ByVal Pattern As String, ByVa
     tsv = ToTSV(InSheet)
     tmpfile = GetTempPath(".tsv")
     SaveText tmpfile, tsv
-    
-    ' パターンをファイルに保存(コマンドラインから多バイト文字コードを実行すると文字化けするため)
-    Dim patfile As String
-    patfile = GetTempPath("-pat.tsv")
-    SaveText patfile, Pattern
-    
+        
     ' コマンドを構築
     Dim cmd As String, s As String
-    cmd = Command & " " & Options & " -f " & qq(patfile) & " " & qq(tmpfile)
+    cmd = Command & " " & Options & " " & sq(Pattern) & " " & qq(tmpfile)
     
     ' grepを実行して結果を得る
     s = ExecBatch(cmd, "__ERROR__")
@@ -94,14 +89,9 @@ Public Function ExecText(ByVal Command As String, ByVal Pattern As String, ByVal
     tmpfile = GetTempPath(".tsv")
     SaveText tmpfile, InText
     
-    ' パターンをファイルに保存（コマンドライン上の対象文字コード回避のため。CodePageを変えてもエラーになった）
-    Dim patfile
-    patfile = GetTempPath("-pat.txt")
-    SaveText patfile, Pattern
-    
     ' grepを実行して結果を得る
     Dim cmd As String, s As String
-    cmd = Command & " " & Options & " -f " & qq(patfile) & " " & qq(tmpfile)
+    cmd = Command & " " & Options & " " & sq(Pattern) & " " & qq(tmpfile)
     s = ExecBatch(cmd, "__ERROR__")
     If s = "__ERROR__" Then
         ExecText = False
@@ -127,26 +117,28 @@ End Function
 
 
 ' Execute Batch Command
-Public Function ExecBatch(ByVal Command As String, ByVal FailStr As String) As String
+Public Function ExecBatch(ByVal Commands As String, ByVal FailStr As String) As String
     Call BusyboxInit
     ' GetTempFile
     Dim FSO As Object, BatFile As String, OutFile As String
     Set FSO = CreateObject("Scripting.FileSystemObject")
-    BatFile = GetTempPath(".bat")
+    BatFile = GetTempPath(".bash")
     OutFile = GetTempPath(".txt")
 
     ' Save batfile
     Dim Src As String
-    Src = qq(BusyboxPath) & " " & Command
-    Src = Src & ">" & qq(OutFile) & vbCrLf
+    Src = Commands & " >" & qq(OutFile) & vbCrLf
+    ' Src = qq(BusyboxPath) & Commands
+    ' Src = Src & ">" & qq(OutFile) & vbCrLf
     ' Src = "chcp 65001" & vbCrLf & Src ' Set Charset UTF-8
     ' Src = Src & vbCrLf & "pause" & vbCrLf
     SaveText BatFile, Src
     Debug.Print Src
     
     ' execute batch
-    Dim r As Boolean
-    r = ShellWait(BatFile)
+    Dim r As Boolean, sh
+    sh = qq(BusyboxPath) & " bash " & qq(BatFile)
+    r = ShellWait(sh)
     If Not r Then
         Debug.Print "[Error] Batch command faild. Path=" & BatFile
         ExecBatch = FailStr
@@ -161,7 +153,7 @@ End Function
 ' 以下は下請け関数
 
 ' ShellWait is Execute command and wait
-Public Function ShellWait(Command As String) As Boolean
+Public Function ShellWait(ByVal Command As String) As Boolean
     On Error GoTo SHELL_ERROR
     Dim wsh As Object
     Set wsh = CreateObject("Wscript.Shell")
@@ -181,12 +173,19 @@ Private Function GetTempPath(Ext As String) As String
 End Function
 
 
-' パスの前後にダブルクォートをつける
+' quote path
 Private Function qq(Path) As String
     qq = """" & Path & """"
 End Function
 
-' 既存のシートのセルを空白にする
+' quote string
+Private Function sq(ss) As String
+    Dim s
+    s = Replace(ss, "'", "'\''")
+    sq = "'" & s & "'"
+End Function
+
+' Clear sheet
 Public Sub ClearSheet(ByRef Sheet As Worksheet, ByVal TopRow As Integer)
     Dim EndCol, EndRow, Row, Col
     With Sheet.UsedRange
@@ -200,7 +199,7 @@ Public Sub ClearSheet(ByRef Sheet As Worksheet, ByVal TopRow As Integer)
     Next
 End Sub
 
-' TSVの内容をシートに書き込む
+' TSV to Sheet
 Public Sub TSVToSheet(ByRef Sheet As Worksheet, ByVal tsv As String, TopRow As Integer)
     Dim Rows As Variant, Cols As Variant
     Dim i, j
@@ -217,7 +216,7 @@ Public Sub TSVToSheet(ByRef Sheet As Worksheet, ByVal tsv As String, TopRow As I
 End Sub
 
 
-' シートをTSVに変換
+' Convert Sheet to TSV
 Public Function ToTSV(ByRef Sheet As Worksheet) As String
     Dim s As String
     s = ""
@@ -239,7 +238,7 @@ Public Function ToTSV(ByRef Sheet As Worksheet) As String
     ToTSV = s
 End Function
 
-Public Sub SaveText(ByVal Filename As String, Text As String)
+Public Sub SaveText(ByVal Filename As String, ByVal Text As String)
     If BusyboxCharset = "" Then BusyboxCharset = BusyboxCharsetDefault
     SaveToFile Filename, Text, BusyboxCharset
 End Sub
@@ -251,7 +250,7 @@ End Function
 
 
 ' テキストを指定文字コードでファイルに保存
-Public Sub SaveToFile(Filename, Text, Charset)
+Public Sub SaveToFile(ByVal Filename, ByVal Text, ByVal Charset)
     ' UTF-8 の場合 BOMは不要
     If LCase(Charset) = "utf-8" Or LCase(Charset) = "utf-8n" Or LCase(Charset) = "utf8" Then
         Call SaveToFileUTF8N(Filename, Text)
