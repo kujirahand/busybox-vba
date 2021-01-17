@@ -1,6 +1,6 @@
-# busybox-vba for Windows
+# busybox for Excel VBA (Windows)
 
-grep, sed, awk for VBA
+grep, sed, awk for Excel VBA (Windows)
 
 # Setup
 
